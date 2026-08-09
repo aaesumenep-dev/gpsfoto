@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full bg-slate-900 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS Timestamp Camera Web Generator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- EXIF Reader Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        
+        /* Canvas Checkerboard Background for Transparency */
+        .canvas-bg {
+            background-color: #1e293b;
+            background-image: 
+                linear-gradient(45deg, #0f172a 25%, transparent 25%), 
+                linear-gradient(-45deg, #0f172a 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #0f172a 75%), 
+                linear-gradient(-45deg, transparent 75%, #0f172a 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+    </style>
+</head>
+<body class="h-full font-sans antialiased flex flex-col justify-between overflow-x-hidden">
+
+    <!-- Header Bar -->
+    <header class="bg-slate-800/80 backdrop-blur border-b border-slate-700/60 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-sky-500/20">
+                    <i class="fa-solid fa-location-dot text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg text-white leading-tight">Timestamp GPS Studio</h1>
+                    <p class="text-xs text-slate-400">Pembuat Stempel Foto GPS Presisi & Lokasi Otomatis</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button id="loadSampleBtn" type="button" class="px-3 py-1.5 text-xs font-medium text-sky-400 bg-sky-950/60 border border-sky-800 hover:bg-sky-900/50 rounded-lg transition-colors flex items-center gap-1.5">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span class="hidden sm:inline">Muat Contoh</span> "Gapura"
+                </button>
+                <button id="triggerUploadBtn" type="button" class="px-4 py-1.5 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-500 rounded-lg shadow-md transition-colors flex items-center gap-2">
+                    <i class="fa-solid fa-upload"></i>
+                    <span>Unggah Foto</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        <!-- Left Panel: Controls & Customization -->
+        <div class="lg:col-span-5 space-y-5">
+            
+            <!-- Quick Presets -->
+            <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4 shadow-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                        <i class="fa-solid fa-bolt text-amber-400"></i> Preset Cepat
+                    </span>
+                    <span class="text-[10px] bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">1-Click</span>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                    <button type="button" onclick="applyPreset('gapura')" class="p-2 rounded-lg bg-slate-900/60 border border-slate-700 hover:border-sky-500 hover:bg-slate-700/50 transition text-left">
+                        <p class="font-semibold text-sky-400">Gapura Sumenep</p>
+                        <p class="text-[10px] text-slate-400 truncate">Sesuai Contoh Gambar</p>
+                    </button>
+                    <button type="button" onclick="applyPreset('kkn')" class="p-2 rounded-lg bg-slate-900/60 border border-slate-700 hover:border-sky-500 hover:bg-slate-700/50 transition text-left">
+                        <p class="font-semibold text-emerald-400">Kegiatan KKN</p>
+                        <p class="text-[10px] text-slate-400 truncate">Dokumentasi Lapangan</p>
+                    </button>
+                    <button type="button" onclick="applyPreset('survei')" class="p-2 rounded-lg bg-slate-900/60 border border-slate-700 hover:border-sky-500 hover:bg-slate-700/50 transition text-left">
+                        <p class="font-semibold text-purple-400">Survei Lokasi</p>
+                        <p class="text-[10px] text-slate-400 truncate">Inspeksi Lapangan</p>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Settings Accordion / Tabs Container -->
+            <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl shadow-xl overflow-hidden divide-y divide-slate-700/60">
+
+                <!-- Section 1: GPS Presisi & Lokasi -->
+                <div class="p-4 sm:p-5">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-satellite-dish text-sky-400 animate-pulse"></i> Modul GPS Presisi
+                        </h2>
+                        <div class="flex items-center gap-1.5">
+                            <button type="button" id="getCurrentGpsBtn" title="Ambil posisi GPS akurasi tinggi" class="text-xs text-sky-300 hover:text-white font-medium flex items-center gap-1 bg-sky-950/80 hover:bg-sky-900 px-2.5 py-1.5 rounded-lg border border-sky-700/60 transition">
+                                <i class="fa-solid fa-crosshairs text-emerald-400"></i> GPS Presisi
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- GPS Accuracy Indicator Badge -->
+                    <div id="gpsAccuracyBox" class="mb-3 p-2.5 rounded-xl bg-slate-900/80 border border-slate-700 flex items-center justify-between text-xs">
+                        <div class="flex items-center gap-2">
+                            <span id="gpsSignalDot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500"></span>
+                            <span class="text-slate-300 font-medium">Status Akurasi GPS:</span>
+                        </div>
+                        <span id="gpsAccuracyVal" class="font-mono text-emerald-400 font-bold">± 3.2 meter (Presisi)</span>
+                    </div>
+
+                    <!-- GPS Permission Status Banner Notification -->
+                    <div id="gpsPermissionBanner" class="mb-3 p-3 rounded-xl bg-amber-950/60 border border-amber-500/40 text-amber-200 text-xs flex items-center justify-between gap-2 shadow-lg">
+                        <div class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-location-crosshairs text-amber-400 text-base animate-pulse"></i>
+                            <div>
+                                <p class="font-bold text-amber-300">Akses Lokasi Belum Aktif</p>
+                                <p class="text-[11px] text-amber-200/80">Aktifkan GPS HP/Browser untuk alamat presisi otomatis.</p>
+                            </div>
+                        </div>
+                        <button type="button" onclick="openGpsModal()" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-[11px] whitespace-nowrap transition shadow">
+                            Aktifkan GPS
+                        </button>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Judul Wilayah / Lokasi</label>
+                            <input type="text" id="inputTitle" value="Gapura, Jawa Timur" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-sky-500 outline-none">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Alamat Lengkap</label>
+                            <textarea id="inputAddress" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-sky-500 outline-none resize-none">35-120, Gapura, Sumenep, Jawa Timur, Jawa, Indonesia</textarea>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Latitude</label>
+                                <input type="text" id="inputLat" value="-6.997383" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:ring-2 focus:ring-sky-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Longitude</label>
+                                <input type="text" id="inputLong" value="113.955372" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:ring-2 focus:ring-sky-500 outline-none">
+                            </div>
+                        </div>
+
+                        <div class="space-y-2 pt-1">
+                            <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                                <input type="checkbox" id="autoGeocodeToggle" checked class="w-3.5 h-3.5 rounded text-sky-600 bg-slate-900 border-slate-700 focus:ring-sky-500">
+                                <span>Cari alamat otomatis dari GPS</span>
+                            </label>
+                            <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                                <input type="checkbox" id="showAccuracyStampToggle" checked class="w-3.5 h-3.5 rounded text-sky-600 bg-slate-900 border-slate-700 focus:ring-sky-500">
+                                <span>Tampilkan margin akurasi GPS pada stempel</span>
+                            </label>
+                        </div>
+
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-xs font-medium text-slate-300">Format Tanggal & Waktu</label>
+                                <button type="button" id="setCurrentTimeBtn" class="text-[11px] text-sky-400 hover:text-sky-300 font-medium flex items-center gap-1">
+                                    <i class="fa-solid fa-clock"></i> Waktu Sekarang
+                                </button>
+                            </div>
+                            <input type="text" id="inputDatetime" value="17/02/26 08:00:12 GMT +07:00" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:ring-2 focus:ring-sky-500 outline-none">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Teks Catatan / Note</label>
+                            <input type="text" id="inputNote" value="Note: AREA GAPURA DOKUMENTASI" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-sky-500 outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3: Peta & Bendera -->
+                <div class="p-4 sm:p-5">
+                    <h2 class="text-sm font-bold text-white flex items-center gap-2 mb-3">
+                        <i class="fa-solid fa-map text-sky-400"></i> Peta Mini & Bendera
+                    </h2>
+
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <label class="text-xs font-medium text-slate-300">Tampilkan Peta Mini</label>
+                            <input type="checkbox" id="showMapToggle" checked class="w-4 h-4 rounded text-sky-600 bg-slate-900 border-slate-700 focus:ring-sky-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Bendera Negara</label>
+                            <select id="flagSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-sky-500 outline-none">
+                                <option value="🇮🇩">🇮🇩 Indonesia</option>
+                                <option value="🇲🇾">🇲🇾 Malaysia</option>
+                                <option value="🇸🇬">🇸🇬 Singapore</option>
+                                <option value="🇵🇭">🇵🇭 Philippines</option>
+                                <option value="🇹🇭">🇹🇭 Thailand</option>
+                                <option value="🌐">🌐 Global / None</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 4: Gaya & Tampilan Watermark -->
+                <div class="p-4 sm:p-5">
+                    <h2 class="text-sm font-bold text-white flex items-center gap-2 mb-3">
+                        <i class="fa-solid fa-sliders text-sky-400"></i> Kustomisasi Tampilan
+                    </h2>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Posisi Watermark</label>
+                            <select id="positionSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-sky-500 outline-none">
+                                <option value="bottom-left" selected>Kiri Bawah (Standard Timestamp)</option>
+                                <option value="bottom-right">Kanan Bawah</option>
+                                <option value="top-left">Kiri Atas</option>
+                                <option value="top-right">Kanan Atas</option>
+                                <option value="bottom-center">Tengah Bawah</option>
+                                <option value="custom">Geser Bebas (Custom Drag)</option>
+                            </select>
+                            <p class="text-[11px] text-sky-400 mt-1 flex items-center gap-1">
+                                <i class="fa-solid fa-hand-pointer"></i> Tips: Anda juga dapat mengeklik & menggeser (drag) watermark langsung pada layar preview foto.
+                            </p>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs font-medium text-slate-300 mb-1">
+                                <span>Ukuran Skala Watermark</span>
+                                <span id="scaleVal" class="text-sky-400 font-mono">100%</span>
+                            </div>
+                            <input type="range" id="scaleSlider" min="50" max="180" value="100" class="w-full accent-sky-500">
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs font-medium text-slate-300 mb-1">
+                                <span>Kegelapan Background (Opasitas)</span>
+                                <span id="opacityVal" class="text-sky-400 font-mono">75%</span>
+                            </div>
+                            <input type="range" id="opacitySlider" min="20" max="100" value="75" class="w-full accent-sky-500">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Right Panel: Live Preview & Download Canvas -->
+        <div class="lg:col-span-7 flex flex-col gap-4">
+            <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col h-full">
+                
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <h2 class="text-sm font-bold text-white">Preview Kamera & Watermark GPS</h2>
+                    </div>
+                    <div id="imageDimensionsBadge" class="text-[11px] font-mono text-slate-400 bg-slate-900/80 px-2.5 py-1 rounded-lg border border-slate-700/50">
+                        1920 x 1080px
+                    </div>
+                </div>
+
+                <!-- Canvas Preview Container -->
+                <div class="relative flex-1 min-h-[360px] sm:min-h-[480px] w-full canvas-bg rounded-xl overflow-hidden border border-slate-700 flex items-center justify-center p-2">
+                    <canvas id="mainCanvas" class="max-w-full max-h-[70vh] object-contain rounded-lg shadow-2xl transition-all touch-none cursor-grab"></canvas>
+                    
+                    <!-- Hidden file input -->
+                    <input type="file" id="imageInput" accept="image/*" class="hidden">
+                    
+                    <!-- Drag & Drop overlay / Placeholder -->
+                    <div id="uploadPlaceholder" class="hidden absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center p-6 text-center cursor-pointer hover:bg-slate-900/80 transition">
+                        <div class="w-16 h-16 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/30 flex items-center justify-center text-2xl mb-4">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                        </div>
+                        <p class="text-sm font-semibold text-white mb-1">Klik atau Geser Foto ke Sini</p>
+                        <p class="text-xs text-slate-400 max-w-xs">Mendukung format JPG, PNG, WEBP. Data GPS dari foto akan otomatis terbaca.</p>
+                    </div>
+                </div>
+
+                <!-- Action Download Buttons -->
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-700/60">
+                    <div class="flex items-center gap-2">
+                        <button type="button" id="useCameraBtn" class="px-3 py-2 text-xs font-semibold text-slate-200 bg-slate-700/80 hover:bg-slate-700 rounded-xl transition flex items-center gap-2">
+                            <i class="fa-solid fa-camera"></i>
+                            <span>Buka Kamera</span>
+                        </button>
+                        <button type="button" id="resetBtn" class="px-3 py-2 text-xs font-semibold text-slate-400 hover:text-slate-200 bg-slate-800 hover:bg-slate-700/50 rounded-xl transition">
+                            <i class="fa-solid fa-rotate"></i> Reset
+                        </button>
+                    </div>
+
+                    <button type="button" id="downloadBtn" class="px-6 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 rounded-xl shadow-lg shadow-sky-500/25 transition flex items-center gap-2">
+                        <i class="fa-solid fa-download text-sm"></i>
+                        <span>Unduh Hasil Foto (HD)</span>
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-800 text-white border border-slate-700 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toastMsg" class="text-xs font-medium">Pesan notifikasi</span>
+    </div>
+
+    <!-- Modal Minta Akses GPS / Lokasi -->
+    <div id="gpsModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 relative">
+            <button type="button" onclick="closeGpsModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white transition text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            
+            <div class="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center text-2xl mx-auto mb-2">
+                <i class="fa-solid fa-location-dot animate-bounce"></i>
+            </div>
+
+            <div class="text-center space-y-1">
+                <h3 class="text-lg font-bold text-white">Izinkan Akses GPS Presisi</h3>
+                <p class="text-xs text-slate-300">Aplikasi memerlukan akses lokasi agar dapat mengambil koordinat lat/long dan alamat lengkap secara otomatis untuk stempel foto Anda.</p>
+            </div>
+
+            <!-- Steps / Guide -->
+            <div id="gpsModalInstructions" class="bg-slate-800/80 rounded-xl p-3 border border-slate-700/60 text-xs space-y-2">
+                <p class="font-semibold text-sky-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-shield-halved"></i> Privasi Aman
+                </p>
+                <p class="text-slate-300 text-[11px]">Data lokasi hanya digunakan langsung di browser Anda untuk membuat watermark dan tidak pernah disimpan ke server manapun.</p>
+            </div>
+
+            <!-- Denied Help Alert -->
+            <div id="gpsDeniedAlert" class="hidden bg-rose-950/80 border border-rose-500/50 rounded-xl p-3 text-xs text-rose-200 space-y-2">
+                <p class="font-bold text-rose-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Akses GPS Ditolak / Dilarang Browser
+                </p>
+                <p class="text-[11px] text-rose-200/90 leading-relaxed">
+                    Browser Anda memblokir izin lokasi. Untuk mengaktifkannya:
+                    <br>1. Klik ikon <b>Gembok / Setelan</b> di sebelah URL browser.
+                    <br>2. Cari menu <b>Izin Lokasi (Location)</b> lalu atur ke <b>Izinkan (Allow)</b>.
+                    <br>3. Muat ulang (Refresh) halaman ini.
+                </p>
+            </div>
+
+            <div class="flex items-center gap-2 pt-2">
+                <button type="button" onclick="closeGpsModal()" class="w-1/2 py-2.5 px-4 rounded-xl text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 transition">
+                    Nanti Saja
+                </button>
+                <button type="button" id="confirmEnableGpsBtn" onclick="requestGpsWithPermissionPrompt()" class="w-1/2 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 shadow-lg shadow-sky-500/20 transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>Izinkan GPS</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Default Sample Photo (Gapura Sumenep Simulation Image)
+        const SAMPLE_IMAGE_URL = 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1600&q=80';
+
+        // State Store
+        let currentImage = new Image();
+        let isImageLoaded = false;
+        let currentAccuracyMeters = 3.2; // Default precision
+        
+        // Custom Position State for Drag & Drop
+        let customPosRatio = null; // { xRatio: number, yRatio: number }
+        let isDragging = false;
+        let dragOffset = { x: 0, y: 0 };
+        let stampBounds = { x: 0, y: 0, width: 0, height: 0 };
+        
+        // Element References
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas ? canvas.getContext('2d') : null;
+        const imageInput = document.getElementById('imageInput');
+        const triggerUploadBtn = document.getElementById('triggerUploadBtn');
+        const loadSampleBtn = document.getElementById('loadSampleBtn');
+        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const getCurrentGpsBtn = document.getElementById('getCurrentGpsBtn');
+        const setCurrentTimeBtn = document.getElementById('setCurrentTimeBtn');
+        const imageDimensionsBadge = document.getElementById('imageDimensionsBadge');
+        const gpsAccuracyVal = document.getElementById('gpsAccuracyVal');
+        const gpsSignalDot = document.getElementById('gpsSignalDot');
+        const autoGeocodeToggle = document.getElementById('autoGeocodeToggle');
+        const showAccuracyStampToggle = document.getElementById('showAccuracyStampToggle');
+        
+        // Form Controls
+        const inputTitle = document.getElementById('inputTitle');
+        const inputAddress = document.getElementById('inputAddress');
+        const inputLat = document.getElementById('inputLat');
+        const inputLong = document.getElementById('inputLong');
+        const inputDatetime = document.getElementById('inputDatetime');
+        const inputNote = document.getElementById('inputNote');
+        const showMapToggle = document.getElementById('showMapToggle');
+        const flagSelect = document.getElementById('flagSelect');
+        const positionSelect = document.getElementById('positionSelect');
+        const scaleSlider = document.getElementById('scaleSlider');
+        const scaleVal = document.getElementById('scaleVal');
+        const opacitySlider = document.getElementById('opacitySlider');
+        const opacityVal = document.getElementById('opacityVal');
+
+        // Attach Change Listeners for Instant Live Re-render
+        const formInputs = [
+            inputTitle, inputAddress, inputLat, inputLong, 
+            inputDatetime, inputNote, showMapToggle, flagSelect, 
+            positionSelect, scaleSlider, opacitySlider, showAccuracyStampToggle
+        ];
+
+        formInputs.filter(Boolean).forEach(input => {
+            input.addEventListener('input', () => {
+                updateLabels();
+                renderCanvas();
+            });
+            input.addEventListener('change', () => {
+                if (input === positionSelect && positionSelect.value !== 'custom') {
+                    customPosRatio = null; // Reset custom position when picking preset
+                }
+                updateLabels();
+                renderCanvas();
+            });
+        });
+
+        function updateLabels() {
+            if (scaleVal && scaleSlider) scaleVal.textContent = `${scaleSlider.value}%`;
+            if (opacityVal && opacitySlider) opacityVal.textContent = `${opacitySlider.value}%`;
+        }
+
+        // Upload Button handlers
+        if (triggerUploadBtn) triggerUploadBtn.addEventListener('click', () => imageInput && imageInput.click());
+        if (uploadPlaceholder) uploadPlaceholder.addEventListener('click', () => imageInput && imageInput.click());
+
+        if (imageInput) {
+            imageInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    processUploadedFile(file);
+                }
+            });
+        }
+
+        function processUploadedFile(file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.onload = () => {
+                    currentImage = img;
+                    isImageLoaded = true;
+                    if (uploadPlaceholder) uploadPlaceholder.classList.add('hidden');
+                    if (imageDimensionsBadge) imageDimensionsBadge.textContent = `${img.naturalWidth} x ${img.naturalHeight}px`;
+                    
+                    // Attempt EXIF GPS extraction
+                    tryExtractExif(file);
+                    
+                    renderCanvas();
+                    showToast('Foto berhasil dimuat!');
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Try extracting EXIF location & date
+        function tryExtractExif(file) {
+            EXIF.getData(file, function() {
+                const lat = EXIF.getTag(this, "GPSLatitude");
+                const latRef = EXIF.getTag(this, "GPSLatitudeRef");
+                const lon = EXIF.getTag(this, "GPSLongitude");
+                const lonRef = EXIF.getTag(this, "GPSLongitudeRef");
+                const dateTime = EXIF.getTag(this, "DateTimeOriginal");
+
+                if (lat && lon) {
+                    const latDec = convertDMSToDD(lat, latRef);
+                    const lonDec = convertDMSToDD(lon, lonRef);
+                    if (inputLat) inputLat.value = latDec.toFixed(6);
+                    if (inputLong) inputLong.value = lonDec.toFixed(6);
+                    
+                    updateGpsAccuracyDisplay(5.0, "EXIF Photo Data");
+                    showToast('Data GPS berhasil dibaca dari foto!');
+
+                    if (autoGeocodeToggle?.checked) {
+                        fetchReverseGeocode(latDec, lonDec);
+                    }
+                }
+
+                if (dateTime) {
+                    const parts = dateTime.split(" ");
+                    if (parts.length === 2) {
+                        const dateParts = parts[0].split(":");
+                        if (dateParts.length === 3) {
+                            const yy = dateParts[0].slice(-2);
+                            if (inputDatetime) inputDatetime.value = `${dateParts[2]}/${dateParts[1]}/${yy} ${parts[1]} GMT +07:00`;
+                        }
+                    }
+                }
+            });
+        }
+
+        function convertDMSToDD(dms, ref) {
+            let dd = dms[0] + dms[1] / 60 + dms[2] / 3600;
+            if (ref === "S" || ref === "W") {
+                dd = dd * -1;
+            }
+            return dd;
+        }
+
+        window.applyPreset = function(presetKey) {
+            if (presetKey === 'gapura') {
+                if (inputTitle) inputTitle.value = "Gapura, Jawa Timur";
+                if (inputAddress) inputAddress.value = "35-120, Gapura, Sumenep, Jawa Timur, Jawa, Indonesia";
+                if (inputLat) inputLat.value = "-6.997383";
+                if (inputLong) inputLong.value = "113.955372";
+                if (inputDatetime) inputDatetime.value = "17/02/26 08:00:12 GMT +07:00";
+                if (inputNote) inputNote.value = "Note: AREA GAPURA DOKUMENTASI";
+                if (flagSelect) flagSelect.value = "🇮🇩";
+                if (positionSelect) positionSelect.value = "bottom-left";
+                updateGpsAccuracyDisplay(3.2, "Simulasi Presisi");
+            } else if (presetKey === 'kkn') {
+                if (inputTitle) inputTitle.value = "Posko KKN, Jawa Timur";
+                if (inputAddress) inputAddress.value = "Kecamatan Sumenep, Kabupaten Sumenep, Jawa Timur, Indonesia";
+                if (inputLat) inputLat.value = "-7.012540";
+                if (inputLong) inputLong.value = "113.867120";
+                if (inputNote) inputNote.value = "Note: KEGIATAN KKN KELOMPOK 05";
+                updateGpsAccuracyDisplay(2.1, "Simulasi Presisi");
+            } else if (presetKey === 'survei') {
+                if (inputTitle) inputTitle.value = "Lokasi Proyek Field Survey";
+                if (inputAddress) inputAddress.value = "Jl. Raya Gapura No. 45, Sumenep, Jawa Timur, Indonesia";
+                if (inputNote) inputNote.value = "Note: HASIL SURVEI LAPANGAN UNIT 1";
+                updateGpsAccuracyDisplay(1.8, "Simulasi Presisi");
+            }
+            renderCanvas();
+            showToast('Preset berhasil diterapkan');
+        };
+
+        if (loadSampleBtn) loadSampleBtn.addEventListener('click', loadSampleImage);
+        
+        function loadSampleImage() {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => {
+                currentImage = img;
+                isImageLoaded = true;
+                if (uploadPlaceholder) uploadPlaceholder.classList.add('hidden');
+                if (imageDimensionsBadge) imageDimensionsBadge.textContent = `${img.naturalWidth} x ${img.naturalHeight}px`;
+                applyPreset('gapura');
+                showToast('Foto contoh berhasil dimuat!');
+            };
+            img.onerror = () => {
+                createFallbackImage();
+            };
+            img.src = SAMPLE_IMAGE_URL;
+        }
+
+        function createFallbackImage() {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 1280;
+            tempCanvas.height = 720;
+            const tCtx = tempCanvas.getContext('2d');
+            
+            const grad = tCtx.createLinearGradient(0,0,1280,720);
+            grad.addColorStop(0, '#1e293b');
+            grad.addColorStop(1, '#0f172a');
+            tCtx.fillStyle = grad;
+            tCtx.fillRect(0, 0, 1280, 720);
+            
+            tCtx.fillStyle = '#38bdf8';
+            tCtx.font = 'bold 36px Inter';
+            tCtx.textAlign = 'center';
+            tCtx.fillText('FOTO DOKUMENTASI LAPANGAN', 640, 340);
+            tCtx.fillStyle = '#94a3b8';
+            tCtx.font = '20px Inter';
+            tCtx.fillText('Unggah foto Anda sendiri untuk mengganti latar belakang ini', 640, 390);
+
+            const img = new Image();
+            img.onload = () => {
+                currentImage = img;
+                isImageLoaded = true;
+                if (uploadPlaceholder) uploadPlaceholder.classList.add('hidden');
+                if (imageDimensionsBadge) imageDimensionsBadge.textContent = "1280 x 720px";
+                renderCanvas();
+            };
+            img.src = tempCanvas.toDataURL();
+        }
+
+        function updateGpsAccuracyDisplay(accMeters, statusLabel = "High Precision GPS") {
+            currentAccuracyMeters = accMeters;
+            if (gpsAccuracyVal) gpsAccuracyVal.textContent = `± ${accMeters.toFixed(1)} meter (${statusLabel})`;
+            
+            if (gpsSignalDot && gpsAccuracyVal) {
+                if (accMeters <= 5) {
+                    gpsSignalDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500";
+                    gpsAccuracyVal.className = "font-mono text-emerald-400 font-bold";
+                } else if (accMeters <= 15) {
+                    gpsSignalDot.className = "w-2.5 h-2.5 rounded-full bg-amber-400 shadow-sm shadow-amber-400";
+                    gpsAccuracyVal.className = "font-mono text-amber-400 font-bold";
+                } else {
+                    gpsSignalDot.className = "w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm shadow-rose-500";
+                    gpsAccuracyVal.className = "font-mono text-rose-400 font-bold";
+                }
+            }
+        }
+
+        const gpsModal = document.getElementById('gpsModal');
+        const gpsPermissionBanner = document.getElementById('gpsPermissionBanner');
+        const gpsDeniedAlert = document.getElementById('gpsDeniedAlert');
+
+        window.openGpsModal = function() {
+            if (gpsModal) gpsModal.classList.remove('hidden');
+        };
+
+        window.closeGpsModal = function() {
+            if (gpsModal) gpsModal.classList.add('hidden');
+        };
+
+        async function checkGpsPermissionState() {
+            if (navigator.permissions && navigator.permissions.query) {
+                try {
+                    const status = await navigator.permissions.query({ name: 'geolocation' });
+                    handlePermissionStatus(status.state);
+                    status.onchange = () => handlePermissionStatus(status.state);
+                } catch (e) {
+                    console.log('Permissions API query fallback', e);
+                }
+            }
+        }
+
+        function handlePermissionStatus(state) {
+            if (!gpsPermissionBanner || !gpsDeniedAlert) return;
+            if (state === 'granted') {
+                gpsPermissionBanner.classList.add('hidden');
+                gpsDeniedAlert.classList.add('hidden');
+            } else if (state === 'denied') {
+                gpsPermissionBanner.classList.remove('hidden');
+                gpsDeniedAlert.classList.remove('hidden');
+            } else {
+                gpsPermissionBanner.classList.remove('hidden');
+                gpsDeniedAlert.classList.add('hidden');
+            }
+        }
+
+        window.requestGpsWithPermissionPrompt = function() {
+            if (!navigator.geolocation) {
+                showToast('Browser Anda tidak mendukung GPS Geolocation', 'error');
+                return;
+            }
+
+            const confirmBtn = document.getElementById('confirmEnableGpsBtn');
+            if (confirmBtn) confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menghubungkan...';
+
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    if (confirmBtn) confirmBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> <span>Izinkan GPS</span>';
+                    closeGpsModal();
+                    
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    const accuracy = pos.coords.accuracy || 3.5;
+
+                    if (inputLat) inputLat.value = lat.toFixed(6);
+                    if (inputLong) inputLong.value = lon.toFixed(6);
+
+                    updateGpsAccuracyDisplay(accuracy, "GPS Terhubung");
+                    if (gpsPermissionBanner) gpsPermissionBanner.classList.add('hidden');
+                    showToast(`GPS Presisi berhasil diaktifkan! (Akurasi ±${accuracy.toFixed(1)}m)`);
+
+                    if (autoGeocodeToggle?.checked) {
+                        fetchReverseGeocode(lat, lon);
+                    } else {
+                        renderCanvas();
+                    }
+                },
+                (err) => {
+                    if (confirmBtn) confirmBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> <span>Izinkan GPS</span>';
+                    if (gpsDeniedAlert) gpsDeniedAlert.classList.remove('hidden');
+                    if (err.code === err.PERMISSION_DENIED) {
+                        showToast('Akses lokasi ditolak oleh pengguna/browser', 'error');
+                    } else {
+                        showToast('Gagal terhubung ke GPS: ' + err.message, 'error');
+                    }
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 0
+                }
+            );
+        };
+
+        if (getCurrentGpsBtn) {
+            getCurrentGpsBtn.addEventListener('click', () => {
+                requestGpsWithPermissionPrompt();
+            });
+        }
+
+        async function fetchReverseGeocode(lat, lon) {
+            try {
+                showToast('Mencari alamat presisi dari koordinat...');
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.display_name) {
+                        if (inputAddress) inputAddress.value = data.display_name;
+                        
+                        const addr = data.address;
+                        if (addr && inputTitle) {
+                            const subArea = addr.village || addr.suburb || addr.town || addr.city_district || addr.county || 'Wilayah';
+                            const stateArea = addr.state || 'Indonesia';
+                            inputTitle.value = `${subArea}, ${stateArea}`;
+                        }
+                        renderCanvas();
+                        showToast('Alamat berhasil disesuaikan dengan GPS!');
+                    }
+                }
+            } catch (e) {
+                console.warn('Reverse geocode warning:', e);
+                renderCanvas();
+            }
+        }
+
+        if (setCurrentTimeBtn) {
+            setCurrentTimeBtn.addEventListener('click', () => {
+                const now = new Date();
+                const dd = String(now.getDate()).padStart(2, '0');
+                const mm = String(now.getMonth() + 1).padStart(2, '0');
+                const yy = String(now.getFullYear()).slice(-2);
+                const hh = String(now.getHours()).padStart(2, '0');
+                const min = String(now.getMinutes()).padStart(2, '0');
+                const ss = String(now.getSeconds()).padStart(2, '0');
+                
+                if (inputDatetime) inputDatetime.value = `${dd}/${mm}/${yy} ${hh}:${min}:${ss} GMT +07:00`;
+                renderCanvas();
+                showToast('Waktu berhasil diperbarui');
+            });
+        }
+
+        // Core Canvas Renderer Function
+        function renderCanvas() {
+            if (!canvas || !ctx) return;
+
+            // Update canvas dimensions based on image or fallback
+            if (isImageLoaded && currentImage.complete && currentImage.naturalWidth) {
+                canvas.width = currentImage.naturalWidth;
+                canvas.height = currentImage.naturalHeight;
+            } else {
+                canvas.width = 1280;
+                canvas.height = 720;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Draw base photo
+            if (isImageLoaded && currentImage.complete) {
+                ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
+            } else {
+                const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                grad.addColorStop(0, '#1e293b');
+                grad.addColorStop(1, '#0f172a');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            // 2. Scale & Watermark Dimensions calculation
+            const userScale = parseInt(scaleSlider ? scaleSlider.value : 100) / 100;
+            const baseScale = Math.max(0.4, (canvas.width / 1280)) * userScale;
+
+            const cardPadding = 18 * baseScale;
+            const mapSize = (showMapToggle && showMapToggle.checked) ? 130 * baseScale : 0;
+            const gap = (showMapToggle && showMapToggle.checked) ? 16 * baseScale : 0;
+            const minTextWidth = 320 * baseScale;
+            const cardWidth = cardPadding * 2 + mapSize + gap + minTextWidth;
+            const cardHeight = Math.max(mapSize + cardPadding * 2, 140 * baseScale);
+
+            // Watermark position calculation
+            let x = 24 * baseScale;
+            let y = canvas.height - cardHeight - (24 * baseScale);
+
+            const pos = positionSelect ? positionSelect.value : 'bottom-left';
+            if (pos === 'bottom-right') {
+                x = canvas.width - cardWidth - (24 * baseScale);
+                y = canvas.height - cardHeight - (24 * baseScale);
+            } else if (pos === 'top-left') {
+                x = 24 * baseScale;
+                y = 24 * baseScale;
+            } else if (pos === 'top-right') {
+                x = canvas.width - cardWidth - (24 * baseScale);
+                y = 24 * baseScale;
+            } else if (pos === 'bottom-center') {
+                x = (canvas.width - cardWidth) / 2;
+                y = canvas.height - cardHeight - (24 * baseScale);
+            } else if (pos === 'custom' && customPosRatio) {
+                x = customPosRatio.xRatio * canvas.width;
+                y = customPosRatio.yRatio * canvas.height;
+            }
+
+            stampBounds = { x, y, width: cardWidth, height: cardHeight };
+
+            // 3. Draw Watermark Background Container
+            const opacity = parseInt(opacitySlider ? opacitySlider.value : 75) / 100;
+            const cornerRadius = 16 * baseScale;
+
+            ctx.save();
+            ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+            ctx.shadowBlur = 20 * baseScale;
+            
+            drawRoundedRect(ctx, x, y, cardWidth, cardHeight, cornerRadius);
+            ctx.fill();
+            ctx.restore();
+
+            // 4. Draw Mini Map Box
+            let textStartX = x + cardPadding;
+            if (showMapToggle && showMapToggle.checked) {
+                const mapX = x + cardPadding;
+                const mapY = y + (cardHeight - mapSize) / 2;
+                
+                ctx.save();
+                ctx.fillStyle = '#ffffff';
+                drawRoundedRect(ctx, mapX, mapY, mapSize, mapSize, 10 * baseScale);
+                ctx.fill();
+                ctx.clip();
+
+                drawVectorMiniMap(ctx, mapX, mapY, mapSize, baseScale);
+
+                ctx.restore();
+                textStartX = mapX + mapSize + gap;
+            }
+
+            // 5. Draw Watermark Text Elements
+            const textWidthMax = cardWidth - (textStartX - x) - cardPadding;
+            let currentY = y + (28 * baseScale);
+
+            ctx.save();
+
+            // Title Line
+            const titleFontSize = Math.round(22 * baseScale);
+            ctx.font = `700 ${titleFontSize}px Inter, sans-serif`;
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+
+            const titleText = (inputTitle ? inputTitle.value : '').trim() || 'Lokasi Presisi';
+            ctx.fillText(truncateText(ctx, titleText, textWidthMax - (40 * baseScale)), textStartX, currentY);
+
+            // Country Flag
+            if (flagSelect && flagSelect.value && flagSelect.value !== '🌐') {
+                const flagFontSize = Math.round(20 * baseScale);
+                ctx.font = `${flagFontSize}px sans-serif`;
+                ctx.fillText(flagSelect.value, x + cardWidth - cardPadding - (24 * baseScale), currentY);
+            }
+
+            currentY += titleFontSize + (6 * baseScale);
+
+            // Address Lines
+            const addressFontSize = Math.round(11 * baseScale);
+            ctx.font = `400 ${addressFontSize}px Inter, sans-serif`;
+            ctx.fillStyle = '#e2e8f0';
+
+            const addressText = (inputAddress ? inputAddress.value : '').trim() || '-';
+            const wrappedLines = getWrappedTextLines(ctx, addressText, textWidthMax, 2);
+            wrappedLines.forEach(line => {
+                ctx.fillText(line, textStartX, currentY);
+                currentY += addressFontSize + (3 * baseScale);
+            });
+
+            currentY += (5 * baseScale);
+
+            // Lat / Long Coordinates
+            const monoFontSize = Math.round(11 * baseScale);
+            ctx.font = `600 ${monoFontSize}px "JetBrains Mono", monospace`;
+            ctx.fillStyle = '#ffffff';
+
+            const latVal = inputLat ? inputLat.value.trim() : '';
+            const longVal = inputLong ? inputLong.value.trim() : '';
+            let coordText = `Lat ${latVal}° Long ${longVal}°`;
+            
+            if (showAccuracyStampToggle && showAccuracyStampToggle.checked) {
+                coordText += ` (±${currentAccuracyMeters.toFixed(1)}m)`;
+            }
+
+            ctx.fillText(coordText, textStartX, currentY);
+
+            currentY += monoFontSize + (4 * baseScale);
+
+            // Datetime Line
+            const datetimeText = inputDatetime ? inputDatetime.value.trim() : '';
+            ctx.fillText(datetimeText, textStartX, currentY);
+
+            currentY += monoFontSize + (4 * baseScale);
+
+            // Note Line
+            const noteText = inputNote ? inputNote.value.trim() : '';
+            if (noteText) {
+                ctx.fillStyle = '#f8fafc';
+                ctx.font = `700 ${monoFontSize}px Inter, sans-serif`;
+                ctx.fillText(noteText, textStartX, currentY);
+            }
+
+            ctx.restore();
+        }
+
+        function getCanvasCoordinates(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+
+            let clientX = e.clientX;
+            let clientY = e.clientY;
+
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            }
+
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+
+        function isPointInBounds(pt, bounds) {
+            return pt.x >= bounds.x && pt.x <= bounds.x + bounds.width &&
+                   pt.y >= bounds.y && pt.y <= bounds.y + bounds.height;
+        }
+
+        function handleDragStart(e) {
+            if (!isImageLoaded) return;
+            const pt = getCanvasCoordinates(e);
+
+            if (isPointInBounds(pt, stampBounds)) {
+                isDragging = true;
+                dragOffset.x = pt.x - stampBounds.x;
+                dragOffset.y = pt.y - stampBounds.y;
+                canvas.style.cursor = 'grabbing';
+            }
+        }
+
+        function handleDragMove(e) {
+            if (!isImageLoaded) return;
+            const pt = getCanvasCoordinates(e);
+
+            if (!isDragging) {
+                if (isPointInBounds(pt, stampBounds)) {
+                    canvas.style.cursor = 'grab';
+                } else {
+                    canvas.style.cursor = 'default';
+                }
+                return;
+            }
+
+            if (e.cancelable) e.preventDefault();
+
+            let newX = pt.x - dragOffset.x;
+            let newY = pt.y - dragOffset.y;
+
+            newX = Math.max(0, Math.min(newX, canvas.width - stampBounds.width));
+            newY = Math.max(0, Math.min(newY, canvas.height - stampBounds.height));
+
+            customPosRatio = {
+                xRatio: newX / canvas.width,
+                yRatio: newY / canvas.height
+            };
+
+            if (positionSelect && positionSelect.value !== 'custom') {
+                positionSelect.value = 'custom';
+            }
+
+            renderCanvas();
+        }
+
+        function handleDragEnd() {
+            if (isDragging) {
+                isDragging = false;
+                if (canvas) canvas.style.cursor = 'grab';
+            }
+        }
+
+        if (canvas) {
+            canvas.addEventListener('mousedown', handleDragStart);
+            window.addEventListener('mousemove', handleDragMove);
+            window.addEventListener('mouseup', handleDragEnd);
+
+            canvas.addEventListener('touchstart', handleDragStart, { passive: false });
+            window.addEventListener('touchmove', handleDragMove, { passive: false });
+            window.addEventListener('touchend', handleDragEnd);
+        }
+
+        function drawVectorMiniMap(ctx, x, y, size, scale) {
+            ctx.fillStyle = '#fef08a';
+            ctx.fillRect(x, y, size, size);
+
+            ctx.fillStyle = '#bbf7d0';
+            ctx.beginPath();
+            ctx.arc(x + size * 0.2, y + size * 0.3, size * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 10 * scale;
+            ctx.beginPath();
+            ctx.moveTo(x, y + size * 0.55);
+            ctx.lineTo(x + size, y + size * 0.52);
+            ctx.stroke();
+
+            ctx.strokeStyle = '#facc15';
+            ctx.lineWidth = 6 * scale;
+            ctx.beginPath();
+            ctx.moveTo(x, y + size * 0.55);
+            ctx.lineTo(x + size, y + size * 0.52);
+            ctx.stroke();
+
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 6 * scale;
+            ctx.beginPath();
+            ctx.moveTo(x + size * 0.45, y);
+            ctx.lineTo(x + size * 0.5, y + size);
+            ctx.stroke();
+
+            const pinX = x + size * 0.48;
+            const pinY = y + size * 0.52;
+
+            ctx.strokeStyle = 'rgba(14, 165, 233, 0.4)';
+            ctx.fillStyle = 'rgba(14, 165, 233, 0.15)';
+            ctx.lineWidth = 2 * scale;
+            ctx.beginPath();
+            ctx.arc(pinX, pinY, size * 0.22, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+            ctx.beginPath();
+            ctx.ellipse(pinX, pinY + (8 * scale), 8 * scale, 4 * scale, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(pinX, pinY - (10 * scale), 10 * scale, Math.PI, 0, false);
+            ctx.lineTo(pinX, pinY);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(pinX, pinY - (10 * scale), 4 * scale, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawRoundedRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+        }
+
+        function truncateText(ctx, text, maxWidth) {
+            if (ctx.measureText(text).width <= maxWidth) return text;
+            let truncated = text;
+            while (truncated.length > 0 && ctx.measureText(truncated + '...').width > maxWidth) {
+                truncated = truncated.slice(0, -1);
+            }
+            return truncated + '...';
+        }
+
+        function getWrappedTextLines(ctx, text, maxWidth, maxLines) {
+            const words = text.split(' ');
+            const lines = [];
+            let currentLine = '';
+
+            for (let i = 0; i < words.length; i++) {
+                const testLine = currentLine ? `${currentLine} ${words[i]}` : words[i];
+                if (ctx.measureText(testLine).width > maxWidth && i > 0) {
+                    lines.push(currentLine);
+                    currentLine = words[i];
+                    if (lines.length === maxLines - 1) break;
+                } else {
+                    currentLine = testLine;
+                }
+            }
+
+            if (currentLine && lines.length < maxLines) {
+                lines.push(currentLine);
+            }
+
+            return lines;
+        }
+
+        if (downloadBtn) {
+            downloadBtn.addEventListener('click', () => {
+                if (!isImageLoaded || !canvas) return;
+
+                const link = document.createElement('a');
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                link.download = `gps_timestamp_hd_${timestamp}.jpg`;
+                link.href = canvas.toDataURL('image/jpeg', 0.95);
+                link.click();
+
+                showToast('Foto HD dengan GPS Presisi berhasil diunduh!');
+            });
+        }
+
+        const resetBtn = document.getElementById('resetBtn');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                applyPreset('gapura');
+            });
+        }
+
+        const useCameraBtn = document.getElementById('useCameraBtn');
+        if (useCameraBtn) {
+            useCameraBtn.addEventListener('click', async () => {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                    const modal = document.createElement('div');
+                    modal.className = "fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-4";
+                    modal.innerHTML = `
+                        <div class="relative max-w-lg w-full bg-slate-800 rounded-2xl overflow-hidden shadow-2xl border border-slate-700">
+                            <div class="p-4 bg-slate-900 flex justify-between items-center border-b border-slate-700">
+                                <h3 class="font-bold text-white text-sm"><i class="fa-solid fa-camera text-sky-400 mr-2"></i> Ambil Foto Kamera GPS</h3>
+                                <button id="closeCamBtn" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+                            </div>
+                            <div class="relative bg-black aspect-video flex items-center justify-center">
+                                <video id="webcamVideo" class="w-full h-full object-cover" autoplay playsinline></video>
+                            </div>
+                            <div class="p-4 flex justify-center bg-slate-900">
+                                <button id="snapCamBtn" class="px-6 py-2.5 bg-sky-500 hover:bg-sky-400 text-white font-bold rounded-xl shadow-lg flex items-center gap-2">
+                                    <i class="fa-solid fa-circle-dot text-rose-500 text-lg"></i> Jepret Foto Lapangan
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(modal);
+
+                    const webcamVideo = modal.querySelector('#webcamVideo');
+                    webcamVideo.srcObject = stream;
+
+                    modal.querySelector('#closeCamBtn').onclick = () => {
+                        stream.getTracks().forEach(t => t.stop());
+                        modal.remove();
+                    };
+
+                    modal.querySelector('#snapCamBtn').onclick = () => {
+                        const tempCamCanvas = document.createElement('canvas');
+                        tempCamCanvas.width = webcamVideo.videoWidth || 1280;
+                        tempCamCanvas.height = webcamVideo.videoHeight || 720;
+                        const cctx = tempCamCanvas.getContext('2d');
+                        cctx.drawImage(webcamVideo, 0, 0);
+
+                        const img = new Image();
+                        img.onload = () => {
+                            currentImage = img;
+                            isImageLoaded = true;
+                            if (uploadPlaceholder) uploadPlaceholder.classList.add('hidden');
+                            if (imageDimensionsBadge) imageDimensionsBadge.textContent = `${img.width} x ${img.height}px`;
+                            
+                            if (setCurrentTimeBtn) setCurrentTimeBtn.click();
+                            renderCanvas();
+                            showToast('Foto kamera berhasil ditangkap!');
+                        };
+                        img.src = tempCamCanvas.toDataURL('image/jpeg');
+
+                        stream.getTracks().forEach(t => t.stop());
+                        modal.remove();
+                    };
+
+                } catch (err) {
+                    showToast('Gagal mengakses kamera: ' + err.message, 'error');
+                }
+            });
+        }
+
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+
+            if (!toast || !toastMsg || !toastIcon) return;
+
+            toastMsg.textContent = msg;
+            if (type === 'error') {
+                toastIcon.className = "fa-solid fa-circle-exclamation text-rose-400";
+            } else {
+                toastIcon.className = "fa-solid fa-circle-check text-emerald-400";
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        window.addEventListener('load', () => {
+            loadSampleImage();
+            updateLabels();
+            checkGpsPermissionState();
+        });
+    </script>
+</body>
+</html>
